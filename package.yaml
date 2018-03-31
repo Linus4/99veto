@@ -21,6 +21,10 @@ description:         Please see the README on Github at <https://github.com/linu
 
 dependencies:
 - base >= 4.7 && < 5
+- wreq
+- scalpel
+- lens
+- bytestring
 
 library:
   source-dirs: src
