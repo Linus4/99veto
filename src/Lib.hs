@@ -14,6 +14,7 @@ import Data.ByteString.Lazy.Char8 (pack, unpack)
 import Data.List (sort, sortBy, group, isPrefixOf, find, (\\))
 import Control.Monad (join)
 import Data.Maybe (fromJust)
+import Data.Bifunctor (bimap)
 
 
 -- | Alias for the short version of a team's name.
@@ -26,11 +27,11 @@ type Map = String
 
 -- | Holds information about a single match / game.
 data Game = Game {
-    date :: String
+    date  :: String
   , team1 :: Tag
   , team2 :: Tag
   , score :: String
-  , link :: URL
+  , link  :: URL
 } deriving (Show)
 
 
@@ -42,58 +43,69 @@ data Veto = Veto_Veto3 Veto3 | Veto_Veto1 Veto1 deriving Show
 data Veto3 = Veto3 {
       teamBans :: (String, String)
     , teamPick :: String
-    , oppBans :: (String, String)
-    , oppPick :: String
+    , oppBans  :: (String, String)
+    , oppPick  :: String
     , leftover :: String
   } deriving (Show)
 
 
 -- | Holds information about the veto-process of a best-of-1 match.
 data Veto1 = Veto1 {
-      tBans :: (String, String, String)
-    , oBans :: (String, String, String)
+      tBans   :: (String, String, String)
+    , oBans   :: (String, String, String)
     , playMap :: String
   } deriving (Show)
 
 
 -- | All maps that are currently in the active-duty group.
-maps :: [String]
+maps :: [Map]
 maps = ["de_cache", "de_mirage", "de_inferno", "de_cbble", "de_overpass"
        , "de_nuke", "de_train"]
 
 
+-- | States how many matches the program should analyze.
+numberMatchesToAnalyze :: Int
+numberMatchesToAnalyze = 7
+
+
+-- | Main function of the program.
 handleArgs :: [String] -> IO ()
 handleArgs [url] = do
+  -- get team name, tag and seasons - new data type?
   teamPage <- get url
-  let body = teamPage ^. responseBody
-      links' = scrapeStringLike body allSeasons
-  case links' of
+  let teamBody = teamPage ^. responseBody
+      mbLinks = scrapeStringLike teamBody allSeasons
+  case mbLinks of
     Nothing -> putStrLn "Could not scrape seasons."
     Just links -> do
-      let name''' = scrapeStringLike body teamName
-      case name''' of
+      let mbNameAndTag = scrapeStringLike teamBody teamName
+      case mbNameAndTag of
         Nothing    -> putStrLn "Could not scrape team name."
-        Just name'' -> do
+        Just nameAndTag -> do
+          let (name, tag) = bimap init (init . tail) $ break (== '(') nameAndTag
+          -- get team matches
           seasonPages <- traverse get links
-          let (name', tag') = break (== '(') name''
-              name = init name'
-              tag = (init . tail) tag'
-              seasonBodies = fmap (^. responseBody) seasonPages 
-              games' = traverse (flip scrapeStringLike allGames) seasonBodies 
-          case games' of
+          let seasonBodies = fmap (^. responseBody) seasonPages 
+              mbGames = traverse (flip scrapeStringLike allGames) seasonBodies 
+          case mbGames of
             Nothing -> putStrLn "Could not scrape games."
             Just games -> do
               let teamGames = filter (matchesTeam tag) (join games)
+              -- get vetos - tuple (game, veto)?
+              -- Now it downloads all matches this team has participated in
+              -- or will in the current season.
               matches <- mapM get $ link <$> teamGames
               let matchBodies = (^. responseBody) <$> matches
-                  logs' = traverse (flip scrapeStringLike logEntries) matchBodies
-              case logs' of
+                  mbLogs = traverse (flip scrapeStringLike logEntries) matchBodies
+              case mbLogs of
                 Nothing -> putStrLn "Could not scrape logs."
                 Just logs -> do
                   let pairs = zip teamGames logs
                       withVeto = fmap (\ps@(g, _) -> (g, parseMaps . fromJust $ findVeto ps)) (filter hasVeto pairs)
-                      vetos = foldr accumulateVetos ([],[],[],[]) $ parseVeto tag <$> (drop ((length withVeto) - 7) withVeto)
+                      -- take the last numberMatchesToAnalyze matches and accumulate
+                      vetos = foldr accumulateVetos ([],[],[],[]) $ parseVeto tag <$> (drop ((length withVeto) - numberMatchesToAnalyze) withVeto)
                       result = countVetos vetos
+                  -- output
                   putStrLn $ "Vetos for: " ++ name ++ " (" ++ tag ++ ")"
                   putStrLn ""
                   prettyPrint result
