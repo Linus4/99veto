@@ -26,3 +26,6 @@ project directory.
 ``` sh
 stack exec 99veto-exe [URL]
 ```
+
+## Options & Switches
+* -- help : displays a usage message
