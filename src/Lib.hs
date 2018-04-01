@@ -85,6 +85,7 @@ handleArgs [url] = do
         Nothing    -> putStrLn "Could not scrape team name."
         Just nameAndTag -> do
           let (name, tag) = bimap init (init . tail) $ break (== '(') nameAndTag
+
           -- get team matches
           seasonPages <- traverse get links
           let seasonBodies = fmap (^. responseBody) seasonPages 
@@ -93,6 +94,7 @@ handleArgs [url] = do
             Nothing -> putStrLn "Could not scrape games."
             Just games -> do
               let teamGames = filter (matchesTeam tag) (join games)
+
               -- get vetos - tuple (game, veto)?
               -- Now it downloads all matches this team has participated in
               -- or will in the current season.
@@ -104,9 +106,11 @@ handleArgs [url] = do
                 Just logs -> do
                   let pairs = zip teamGames logs
                       withVeto = fmap (\ps@(g, _) -> (g, parseMaps . fromJust $ findVeto ps)) (filter hasVeto pairs)
+
                       -- take the last numberMatchesToAnalyze matches and accumulate
                       vetos = foldr accumulateVetos ([],[],[],[]) $ parseVeto tag <$> (drop ((length withVeto) - numberMatchesToAnalyze) withVeto)
                       result = countVetos vetos
+
                   -- output
                   putStrLn $ "Vetos for: " ++ name ++ " (" ++ tag ++ ")"
                   putStrLn ""
