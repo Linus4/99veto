@@ -70,6 +70,8 @@ numberMatchesToAnalyze = 7
 
 -- | Main function of the program.
 handleArgs :: [String] -> IO ()
+handleArgs ["--help"] = putStrLn "Usage: 99veto URL"
+
 handleArgs [url] = do
   -- get team name, tag and seasons - new data type?
   teamPage <- get url
@@ -110,7 +112,7 @@ handleArgs [url] = do
                   putStrLn ""
                   prettyPrint result
 
-handleArgs _     = putStrLn "usage: 99veto URL"
+handleArgs _ = putStrLn "Usage: 99veto URL"
 
 
 -- | Takes a team's page (body) and produces a string that contains this team's
