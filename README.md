@@ -42,13 +42,22 @@ stack exec 99veto-exe [URL]
 * libcurl
 
 ## TODO
-* write a test-suite
 * break up the handleArgs function into smaller ones
 * refactor the code by providing library functions in src and putting them to 
   use in app; split into multiple modules
+* use a datatype Team (Name, Tag, Seasons)?
+* write a test-suite
 * make it so that matches are only downloaded when there are not enough more
   recent ones with map-vetos
+* use wreq's withSession because it takes ~.5 seconds per request to create
+  a new one apparently (Network.Wreq.Session)
 * find a better solution to accumulate and count the vetos
-* rename Veto data type (Veto_Veto3...)?
-* use a datatype Team (Name, Tag, Seasons)?
+* add an argument parser (help, number of matches)
 * find a solution for nested case Nothing / Just pyramid
+* maybe use Text to improve performance
+* rename Veto data type (Veto_Veto3...)?
+* use mapMaybe to discard matches without a veto?
+* catch execption when the user supplies an invalid URL
+* analyze ram usage (600 MB) / laziness -- later
+* build time (20 minutes) and size of executable (32 MB)
+* package the app
