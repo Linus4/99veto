@@ -2,6 +2,7 @@
 
 module Lib
     ( handleArgs
+    , getTeamInfo
     ) where
 
 
@@ -9,12 +10,13 @@ import Text.HTML.Scalpel.Core ( Scraper, scrapeStringLike, (@:), (@=), (//)
                               , texts, text, attr, attrs, chroots, chroot
                               , hasClass)
 import Network.Wreq (responseBody)
-import Network.Wreq.Session (newSession, get)
+import Network.Wreq.Session (Session, newSession, get)
 import Control.Lens ((^.))
 import Data.ByteString.Lazy (ByteString, isSuffixOf)
 import Data.ByteString.Lazy.Char8 (pack, unpack)
 import Data.List (sort, sortBy, group, isPrefixOf, find, (\\))
 import Control.Monad (join)
+import Control.Applicative (liftA3)
 import Data.Maybe (fromJust)
 import Data.Bifunctor (bimap)
 
@@ -29,6 +31,14 @@ type Tag = String
 
 -- | Alias for the name of the map / level.
 type Map = String
+
+
+-- | Holds information about the team that is to be analyzed
+data Team = Team {
+    name :: String -- ^ The full name of the team
+  , tag  :: Tag -- ^ The tag of the team
+  , seasons :: [URL] -- ^ Links to the season-pages of the seasons that the team participated in
+}
 
 
 -- | Holds information about a single match / game.
@@ -80,27 +90,20 @@ handleArgs ["--help"] = putStrLn "Usage: 99veto URL"
 
 handleArgs [url] = do
   sess <- newSession
-  -- get team name, tag and seasons - new data type?
-  teamPage <- get sess url
-  let teamBody = teamPage ^. responseBody
-      mbLinks = scrapeStringLike teamBody allSeasons
-  case mbLinks of
-    Nothing -> putStrLn "Could not scrape seasons."
-    Just links -> do
-      let mbNameAndTag = scrapeStringLike teamBody teamName
-      case mbNameAndTag of
-        Nothing    -> putStrLn "Could not scrape team name."
-        Just nameAndTag -> do
-          let (name, tag) = bimap init (init . tail) $ break (== '(') nameAndTag
+  -- get team name, tag and seasons
+  mbTeamInfo <- getTeamInfo sess url
+  case mbTeamInfo of
+    Nothing -> putStrLn "Could not scrape team info."
+    Just teamInfo -> do
 
           -- get team matches
-          seasonPages <- traverse (get sess) links
+          seasonPages <- traverse (get sess) $ seasons teamInfo
           let seasonBodies = fmap (^. responseBody) seasonPages 
               mbGames = traverse (flip scrapeStringLike allGames) seasonBodies 
           case mbGames of
             Nothing -> putStrLn "Could not scrape games."
             Just games -> do
-              let teamGames = filter (matchesTeam tag) (join games)
+              let teamGames = filter (matchesTeam $ tag teamInfo) $ join games
 
               -- get vetos - tuple (game, veto)?
               -- Now it downloads all matches this team has participated in
@@ -115,22 +118,35 @@ handleArgs [url] = do
                       withVeto = fmap (\ps@(g, _) -> (g, parseMaps . fromJust $ findVeto ps)) (filter hasVeto pairs)
 
                       -- take the last numberMatchesToAnalyze matches and accumulate
-                      vetos = foldr accumulateVetos ([],[],[],[]) $ parseVeto tag <$> (drop ((length withVeto) - numberMatchesToAnalyze) withVeto)
+                      vetos = foldr accumulateVetos ([],[],[],[]) $ parseVeto (tag teamInfo) <$> (drop ((length withVeto) - numberMatchesToAnalyze) withVeto)
                       result = countVetos vetos
 
                   -- output
-                  putStrLn $ "Vetos for: " ++ name ++ " (" ++ tag ++ ")"
+                  putStrLn $ "Vetos for: " ++ name teamInfo ++ "(" ++ tag teamInfo ++ ")"
                   putStrLn ""
                   prettyPrint result
 
 handleArgs _ = putStrLn "Usage: 99veto URL"
 
 
--- | Takes a team's page (body) and produces a string that contains this team's
--- name and tag. Example: 
--- > "Casual Identity (Casuals)"
-teamName :: Scraper ByteString String
-teamName = unpack <$> chroot
+-- | Downloads the teampage specified by the second argument and parses it into
+-- a Maybe Team value.
+getTeamInfo :: Session -- ^ Session with which wreq will download the page.
+            -> URL -- ^ Link to the team-page.
+            -> IO (Maybe Team) -- ^ The team-value holding the desired info.
+getTeamInfo sess url = do
+  teamPage <- get sess url
+  let teamBody = teamPage ^. responseBody
+      mbLinks = scrapeStringLike teamBody allSeasons
+      mbNameAndTag = scrapeStringLike teamBody teamNameAndTag
+  return $ liftA3 Team (fst <$> mbNameAndTag) (snd <$> mbNameAndTag) mbLinks
+
+
+-- | Takes a team's page (body) and produces a tuple containing the name and
+-- the tag of the team.
+-- > ("Casual Identity", "Casuals")
+teamNameAndTag :: Scraper ByteString (String, Tag)
+teamNameAndTag = bimap init (init . tail) . break (== '(') . unpack <$> chroot
             ("div" @: ["style" @= "min-height: 120px; margin-left: 115px;"])
             (text "h2")
 
