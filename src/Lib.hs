@@ -6,7 +6,8 @@ module Lib
 
 
 import Text.HTML.Scalpel.Core ( Scraper, scrapeStringLike, (@:), (@=), (//)
-                         , texts, text, attr, attrs, chroots, chroot, hasClass)
+                              , texts, text, attr, attrs, chroots, chroot
+                              , hasClass)
 import Network.Wreq (get, responseBody)
 import Control.Lens ((^.))
 import Data.ByteString.Lazy (ByteString, isSuffixOf)
@@ -31,12 +32,12 @@ type Map = String
 
 -- | Holds information about a single match / game.
 data Game = Game {
-    date  :: String
-  , team1 :: Tag
-  , team2 :: Tag
-  , score :: String
-  , link  :: URL
-} deriving (Show)
+    date  :: String -- ^ Date the match was played on
+  , team1 :: Tag -- ^ Team A / left team
+  , team2 :: Tag -- ^ Team B / right team
+  , score :: String -- ^ Outcome of the match
+  , link  :: URL -- ^ URL to the webpage of this match
+} deriving Show
 
 
 -- | Sum type that holds information about either a bo3 or a bo1 match.
@@ -45,20 +46,20 @@ data Veto = Veto_Veto3 Veto3 | Veto_Veto1 Veto1 deriving Show
 
 -- | Holds information about the veto-process of a best-of-3 match.
 data Veto3 = Veto3 {
-      teamBans :: (String, String)
-    , teamPick :: String
-    , oppBans  :: (String, String)
-    , oppPick  :: String
-    , leftover :: String
-  } deriving (Show)
+      teamBans :: (String, String) -- ^ Maps that were banned by the team that is being analyzed
+    , teamPick :: String -- ^ Map that was picked by the team that is being analyzed
+    , oppBans  :: (String, String) -- ^ Maps that were banned by the opposing team
+    , oppPick  :: String -- ^ Map that was picked by the opposing team
+    , leftover :: String -- ^ Map that was neither banned nor picked
+  } deriving Show
 
 
 -- | Holds information about the veto-process of a best-of-1 match.
 data Veto1 = Veto1 {
-      tBans   :: (String, String, String)
-    , oBans   :: (String, String, String)
-    , playMap :: String
-  } deriving (Show)
+      tBans   :: (String, String, String) -- ^ Maps that were banned by the team that is being analyzed
+    , oBans   :: (String, String, String) -- ^ Maps that were banned by the opposing team
+    , playMap :: String -- ^ Map that was played in this bo1-match
+  } deriving Show
 
 
 -- | All maps that are currently in the active-duty group.
