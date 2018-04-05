@@ -1,7 +1,7 @@
 # 99veto
 A command-line utility that analyzes a team's map-veto behavior in the 99damage-league. 
 
-Version: 0.2.0.0
+Version: 0.3.0.0
 
 ## Installation
 First, you need to install [Stack](https://docs.haskellstack.org/en/stable/README/)
@@ -34,8 +34,6 @@ stack exec 99veto [URL]
 * write a test-suite
 * make it so that matches are only downloaded when there are not enough more
   recent ones with map-vetos
-* use wreq's withSession because it takes ~.5 seconds per request to create
-  a new one apparently (Network.Wreq.Session)
 * find a better solution to accumulate and count the vetos
 * add an argument parser (help, number of matches)
 * find a solution for nested case Nothing / Just pyramid (transformer)

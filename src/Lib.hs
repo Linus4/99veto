@@ -8,7 +8,8 @@ module Lib
 import Text.HTML.Scalpel.Core ( Scraper, scrapeStringLike, (@:), (@=), (//)
                               , texts, text, attr, attrs, chroots, chroot
                               , hasClass)
-import Network.Wreq (get, responseBody)
+import Network.Wreq (responseBody)
+import Network.Wreq.Session (newSession, get)
 import Control.Lens ((^.))
 import Data.ByteString.Lazy (ByteString, isSuffixOf)
 import Data.ByteString.Lazy.Char8 (pack, unpack)
@@ -78,8 +79,9 @@ handleArgs :: [String] -> IO ()
 handleArgs ["--help"] = putStrLn "Usage: 99veto URL"
 
 handleArgs [url] = do
+  sess <- newSession
   -- get team name, tag and seasons - new data type?
-  teamPage <- get url
+  teamPage <- get sess url
   let teamBody = teamPage ^. responseBody
       mbLinks = scrapeStringLike teamBody allSeasons
   case mbLinks of
@@ -92,7 +94,7 @@ handleArgs [url] = do
           let (name, tag) = bimap init (init . tail) $ break (== '(') nameAndTag
 
           -- get team matches
-          seasonPages <- traverse get links
+          seasonPages <- traverse (get sess) links
           let seasonBodies = fmap (^. responseBody) seasonPages 
               mbGames = traverse (flip scrapeStringLike allGames) seasonBodies 
           case mbGames of
@@ -103,7 +105,7 @@ handleArgs [url] = do
               -- get vetos - tuple (game, veto)?
               -- Now it downloads all matches this team has participated in
               -- or will in the current season.
-              matches <- mapM get $ link <$> teamGames
+              matches <- traverse (get sess) $ link <$> teamGames
               let matchBodies = (^. responseBody) <$> matches
                   mbLogs = traverse (flip scrapeStringLike logEntries) matchBodies
               case mbLogs of
