@@ -1,5 +1,5 @@
 name:                99veto
-version:             0.1.0.0
+version:             0.2.0.0
 github:              "linus4/99veto"
 license:             BSD3
 author:              "Linus Weber"
@@ -22,7 +22,7 @@ description:         Please see the README on Github at <https://github.com/linu
 dependencies:
 - base >= 4.7 && < 5
 - wreq
-- scalpel
+- scalpel-core
 - lens
 - bytestring
 
@@ -30,7 +30,7 @@ library:
   source-dirs: src
 
 executables:
-  99veto-exe:
+  99veto:
     main:                Main.hs
     source-dirs:         app
     ghc-options:

@@ -5,7 +5,7 @@ module Lib
     ) where
 
 
-import Text.HTML.Scalpel ( URL, Scraper, scrapeStringLike, (@:), (@=), (//)
+import Text.HTML.Scalpel.Core ( Scraper, scrapeStringLike, (@:), (@=), (//)
                          , texts, text, attr, attrs, chroots, chroot, hasClass)
 import Network.Wreq (get, responseBody)
 import Control.Lens ((^.))
@@ -15,6 +15,10 @@ import Data.List (sort, sortBy, group, isPrefixOf, find, (\\))
 import Control.Monad (join)
 import Data.Maybe (fromJust)
 import Data.Bifunctor (bimap)
+
+
+-- | Alias for a web address
+type URL = String
 
 
 -- | Alias for the short version of a team's name.
