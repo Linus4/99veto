@@ -97,13 +97,10 @@ handleArgs [url] = do
     Just teamInfo -> do
 
           -- get team matches
-          seasonPages <- traverse (get sess) $ seasons teamInfo
-          let seasonBodies = fmap (^. responseBody) seasonPages 
-              mbGames = traverse (flip scrapeStringLike allGames) seasonBodies 
-          case mbGames of
+          mbTeamGames <- getTeamGames sess teamInfo
+          case mbTeamGames of
             Nothing -> putStrLn "Could not scrape games."
-            Just games -> do
-              let teamGames = filter (matchesTeam $ tag teamInfo) $ join games
+            Just teamGames -> do
 
               -- get vetos - tuple (game, veto)?
               -- Now it downloads all matches this team has participated in
@@ -142,13 +139,27 @@ getTeamInfo sess url = do
   return $ liftA3 Team (fst <$> mbNameAndTag) (snd <$> mbNameAndTag) mbLinks
 
 
+-- | Downloads the pages of the matches the team particepated in and parses them
+-- into a list of Games.
+getTeamGames :: Session -- ^ Session with which wreq will download the page.
+             -> Team -- ^ The team-info of the team of which the matches will be downloaded.
+             -> IO (Maybe [Game]) -- ^ Game values holding information about the game.
+getTeamGames sess teamInfo = do
+  seasonPages <- traverse (get sess) $ seasons teamInfo
+  let seasonBodies = fmap (^. responseBody) seasonPages 
+      mbGames = join <$> traverse (flip scrapeStringLike allGames) seasonBodies 
+      mbTeamGames = filter (matchesTeam $ tag teamInfo) <$> mbGames
+  return mbTeamGames
+
+
 -- | Takes a team's page (body) and produces a tuple containing the name and
 -- the tag of the team.
 -- > ("Casual Identity", "Casuals")
 teamNameAndTag :: Scraper ByteString (String, Tag)
-teamNameAndTag = bimap init (init . tail) . break (== '(') . unpack <$> chroot
-            ("div" @: ["style" @= "min-height: 120px; margin-left: 115px;"])
-            (text "h2")
+teamNameAndTag = parseNameAndTag . unpack <$> chroot
+    ("div" @: ["style" @= "min-height: 120px; margin-left: 115px;"])
+    (text "h2")
+  where parseNameAndTag = bimap init (init . tail) . break (== '(')  
 
 
 -- | Takes a team's page (body) and produces a list of all seasons the team
