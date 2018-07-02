@@ -3,6 +3,7 @@
 module Lib
     ( handleArgs
     , getTeamInfo
+    , getTeamGames
     ) where
 
 
@@ -19,9 +20,10 @@ import Control.Monad (join)
 import Control.Applicative (liftA3)
 import Data.Maybe (fromJust)
 import Data.Bifunctor (bimap)
+import Data.Time (parseTimeOrError, Day, defaultTimeLocale)
 
 
--- | Alias for a web address
+-- | Alias for a web address.
 type URL = String
 
 
@@ -33,17 +35,17 @@ type Tag = String
 type Map = String
 
 
--- | Holds information about the team that is to be analyzed
+-- | Holds information about the team that is to be analyzed.
 data Team = Team {
     name :: String -- ^ The full name of the team
   , tag  :: Tag -- ^ The tag of the team
   , seasons :: [URL] -- ^ Links to the season-pages of the seasons that the team participated in
-}
+} deriving Show
 
 
 -- | Holds information about a single match / game.
 data Game = Game {
-    date  :: String -- ^ Date the match was played on
+    date  :: Day -- ^ Date the match was played on
   , team1 :: Tag -- ^ Team A / left team
   , team2 :: Tag -- ^ Team B / right team
   , score :: String -- ^ Outcome of the match
@@ -90,38 +92,37 @@ handleArgs ["--help"] = putStrLn "Usage: 99veto URL"
 
 handleArgs [url] = do
   sess <- newSession
+  
   -- get team name, tag and seasons
   mbTeamInfo <- getTeamInfo sess url
   case mbTeamInfo of
     Nothing -> putStrLn "Could not scrape team info."
     Just teamInfo -> do
 
-          -- get team matches
-          mbTeamGames <- getTeamGames sess teamInfo
-          case mbTeamGames of
-            Nothing -> putStrLn "Could not scrape games."
-            Just teamGames -> do
+      -- get team matches
+      mbTeamGames <- getTeamGames sess teamInfo
+      case mbTeamGames of
+        Nothing -> putStrLn "Could not scrape games."
+        Just teamGames -> do
 
-              -- get vetos - tuple (game, veto)?
-              -- Now it downloads all matches this team has participated in
-              -- or will in the current season.
-              matches <- traverse (get sess) $ link <$> teamGames
-              let matchBodies = (^. responseBody) <$> matches
-                  mbLogs = traverse (flip scrapeStringLike logEntries) matchBodies
-              case mbLogs of
-                Nothing -> putStrLn "Could not scrape logs."
-                Just logs -> do
-                  let pairs = zip teamGames logs
-                      withVeto = fmap (\ps@(g, _) -> (g, parseMaps . fromJust $ findVeto ps)) (filter hasVeto pairs)
+          -- get vetos - tuple (game, veto)?
+          matches <- traverse (get sess) $ link <$> teamGames
+          let matchBodies = (^. responseBody) <$> matches
+              mbLogs = traverse (flip scrapeStringLike logEntries) matchBodies
+          case mbLogs of
+            Nothing -> putStrLn "Could not scrape logs."
+            Just logs -> do
+              let pairs = zip teamGames logs
+                  withVeto = fmap (\ps@(g, _) -> (g, parseMaps . fromJust $ findVeto ps)) (filter hasVeto pairs)
 
-                      -- take the last numberMatchesToAnalyze matches and accumulate
-                      vetos = foldr accumulateVetos ([],[],[],[]) $ parseVeto (tag teamInfo) <$> (drop ((length withVeto) - numberMatchesToAnalyze) withVeto)
-                      result = countVetos vetos
+                  -- take the last numberMatchesToAnalyze matches and accumulate
+                  vetos = foldr accumulateVetos ([],[],[],[]) $ parseVeto (tag teamInfo) <$> (drop ((length withVeto) - numberMatchesToAnalyze) withVeto)
+                  result = countVetos vetos
 
-                  -- output
-                  putStrLn $ "Vetos for: " ++ name teamInfo ++ "(" ++ tag teamInfo ++ ")"
-                  putStrLn ""
-                  prettyPrint result
+              -- output
+              putStrLn $ "Vetos for: " ++ name teamInfo ++ " (" ++ tag teamInfo ++ ")"
+              putStrLn ""
+              prettyPrint result
 
 handleArgs _ = putStrLn "Usage: 99veto URL"
 
@@ -134,9 +135,11 @@ getTeamInfo :: Session -- ^ Session with which wreq will download the page.
 getTeamInfo sess url = do
   teamPage <- get sess url
   let teamBody = teamPage ^. responseBody
-      mbLinks = scrapeStringLike teamBody allSeasons
       mbNameAndTag = scrapeStringLike teamBody teamNameAndTag
-  return $ liftA3 Team (fst <$> mbNameAndTag) (snd <$> mbNameAndTag) mbLinks
+      mbName = fst <$> mbNameAndTag
+      mbTag  = snd <$> mbNameAndTag
+      mbLinks = scrapeStringLike teamBody allSeasons
+  return $ liftA3 Team mbName mbTag mbLinks
 
 
 -- | Downloads the pages of the matches the team particepated in and parses them
@@ -183,7 +186,11 @@ allGames = chroots ("table" @: [hasClass "league_table_matches"] // "tr") game
       let [date, t1', t2', score] = unpack <$> info
           t1 = drop 1 t1'
           t2 = drop 5 t2'
-      return $ Game date t1 t2 score (unpack link)
+          [d, m, y] = words date
+          m_trans = translateMonth m
+          dateString = d ++ " " ++ m_trans ++ " " ++ y
+          day = parseTimeOrError False defaultTimeLocale "%d %b %Y" dateString :: Day
+      return $ Game day t1 t2 score (unpack link)
 
 
 -- | Takes a match's paege (body) and produces a list that contains the match's
@@ -294,6 +301,15 @@ countVetos (bans, picks, oppPicks, leftovers) =
       leftoverCounts = length <$> leftovers'
       leftoverMaps = head <$> leftovers'
 
+
+-- | translateMonth takes a abbreviated month in German and translates it into
+-- English.
+translateMonth :: String -> String
+translateMonth "Mär" = "Mar"
+translateMonth "Mai" = "May"
+translateMonth "Okt" = "Oct"
+translateMonth "Dez" = "Dec"
+translateMonth m = m
 
 -- | Pretty prints a 4-tuple of (Map, count)-associative lists to the terminal.
 prettyPrint :: ([(Map, Int)], [(Map, Int)], [(Map, Int)], [(Map, Int)]) -> IO ()

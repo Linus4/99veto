@@ -27,20 +27,19 @@ stack exec 99veto [URL]
 
 
 ## TODO
+* add functionality to deal with new mappool
 * break up the handleArgs function into smaller ones
 * refactor the code by providing library functions in src and putting them to 
   use in app; split into multiple modules
-* use a datatype Team (Name, Tag, Seasons)?
 * write a test-suite
-* make it so that matches are only downloaded when there are not enough more
-  recent ones with map-vetos
 * find a better solution to accumulate and count the vetos
 * add an argument parser (help, number of matches)
+* use Either instead of Maybe in Lib to keep error messages
 * find a solution for nested case Nothing / Just pyramid (transformer)
 * maybe use Text to improve performance
 * rename Veto data type (Veto_Veto3...)?
 * use mapMaybe to discard matches without a veto?
 * catch execption when the user supplies an invalid URL
 * analyze ram usage (600 MB) / laziness -- later
-* build time (20 minutes) and size of executable (32 MB)
+* size of executable (28 MB)?
 * package the app

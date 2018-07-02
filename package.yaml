@@ -25,6 +25,7 @@ dependencies:
 - scalpel-core
 - lens
 - bytestring
+- time
 
 library:
   source-dirs: src
