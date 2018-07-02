@@ -20,7 +20,7 @@ import Control.Monad (join)
 import Control.Applicative (liftA3)
 import Data.Maybe (fromJust)
 import Data.Bifunctor (bimap)
-import Data.Time (parseTimeOrError, Day, defaultTimeLocale)
+import Data.Time (parseTimeOrError, Day, defaultTimeLocale, fromGregorian)
 
 
 -- | Alias for a web address.
@@ -74,10 +74,22 @@ data Veto1 = Veto1 {
     , playMap :: String -- ^ Map that was played in this bo1-match
   } deriving Show
 
+--
+-- | All maps that were in the active-duty group.
+pool0 :: [Map]
+pool0 = ["de_cache", "de_mirage", "de_inferno", "de_cbble", "de_overpass"
+       , "de_dust2", "de_train"]
 
--- | All maps that are currently in the active-duty group.
-maps :: [Map]
-maps = ["de_cache", "de_mirage", "de_inferno", "de_cbble", "de_overpass"
+
+-- | All maps that were in the active-duty group from 25th of June 2017.
+pool1 :: [Map]
+pool1 = ["de_cache", "de_mirage", "de_inferno", "de_cbble", "de_overpass"
+       , "de_nuke", "de_train"]
+
+
+-- | All maps that currently are in the active-duty group. 1st of June 2018
+pool2 :: [Map]
+pool2 = ["de_cache", "de_mirage", "de_inferno", "de_dust2", "de_overpass"
        , "de_nuke", "de_train"]
 
 
@@ -251,7 +263,7 @@ parseVeto tag (game, veto)
       p1 = veto !! 4
       p2 = veto !! 5
       p0 = veto !! 6
-      [left] = maps \\ veto
+      [left] = mapPool game \\ veto
 
 
 -- | Returns every nth element of a list.
@@ -259,6 +271,13 @@ every :: Int -> [a] -> [a]
 every n xs = case drop (n-1) xs of
               (y:ys) -> y : every n ys
               [] -> []
+
+
+mapPool :: Game -> [Map]
+mapPool game
+  | date game > fromGregorian 2018 6 1  = pool2
+  | date game > fromGregorian 2017 6 20 = pool1
+  | otherwise = pool0
 
 
 -- | Prepends a Veto's information to a 4-tuple of
@@ -306,6 +325,7 @@ countVetos (bans, picks, oppPicks, leftovers) =
 -- English.
 translateMonth :: String -> String
 translateMonth "Mär" = "Mar"
+translateMonth "M\195\164r" = "Mar"
 translateMonth "Mai" = "May"
 translateMonth "Okt" = "Oct"
 translateMonth "Dez" = "Dec"
