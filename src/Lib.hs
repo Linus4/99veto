@@ -117,18 +117,15 @@ handleArgs [url] = do
         Nothing -> putStrLn "Could not scrape games."
         Just teamGames -> do
 
-          -- get vetos - tuple (game, veto)?
-          matches <- traverse (get sess) $ link <$> teamGames
-          let matchBodies = (^. responseBody) <$> matches
-              mbLogs = traverse (flip scrapeStringLike logEntries) matchBodies
-          case mbLogs of
-            Nothing -> putStrLn "Could not scrape logs."
-            Just logs -> do
-              let pairs = zip teamGames logs
-                  withVeto = fmap (\ps@(g, _) -> (g, parseMaps . fromJust $ findVeto ps)) (filter hasVeto pairs)
+          -- get vetos
+          eWithVeto <- getTeamVetos sess teamGames
+          case eWithVeto of
+            Left error -> putStrLn error
+            Right withVeto -> do
 
-                  -- take the last numberMatchesToAnalyze matches and accumulate
-                  vetos = foldr accumulateVetos ([],[],[],[]) $ parseVeto (tag teamInfo) <$> (drop ((length withVeto) - numberMatchesToAnalyze) withVeto)
+              -- take the last numberMatchesToAnalyze matches and accumulate
+              let matchesToAnalyse = drop ((length withVeto) - numberMatchesToAnalyze) withVeto
+                  vetos = foldr accumulateVetos ([],[],[],[]) $ parseVeto (tag teamInfo) <$> matchesToAnalyse
                   result = countVetos vetos
 
               -- output
@@ -137,6 +134,24 @@ handleArgs [url] = do
               prettyPrint result
 
 handleArgs _ = putStrLn "Usage: 99veto URL"
+
+
+-- | Returns a tuple of (Game, Veto) (the corresponding veto for the game) for a list of 
+-- games.
+getTeamVetos :: Session
+             -> [Game]
+             -> IO (Either String [(Game, [Map])])
+getTeamVetos sess teamGames = do
+  matches <- traverse (get sess) $ link <$> teamGames
+  let matchBodies = (^. responseBody) <$> matches
+      mbLogs = traverse (flip scrapeStringLike logEntries) matchBodies
+  case mbLogs of
+    Nothing -> return $ Left "Could not scrape logs."
+    Just logs -> do
+      let pairs = zip teamGames logs
+          withVeto = fmap (\ps@(g, _) -> (g, parseMaps . fromJust $ findVeto ps)) (filter hasVeto pairs)
+      return $ Right withVeto
+
 
 
 -- | Downloads the teampage specified by the second argument and parses it into
@@ -273,6 +288,7 @@ every n xs = case drop (n-1) xs of
               [] -> []
 
 
+-- | Determines what mappool was used at the time of a given match.
 mapPool :: Game -> [Map]
 mapPool game
   | date game > fromGregorian 2018 6 1  = pool2
