@@ -27,7 +27,6 @@ stack exec 99veto [URL]
 
 
 ## TODO
-* add functionality to deal with new mappool
 * break up the handleArgs function into smaller ones
 * refactor the code by providing library functions in src and putting them to 
   use in app; split into multiple modules
@@ -40,6 +39,7 @@ stack exec 99veto [URL]
 * rename Veto data type (Veto_Veto3...)?
 * use mapMaybe to discard matches without a veto?
 * catch execption when the user supplies an invalid URL
-* analyze ram usage (600 MB) / laziness -- later
-* size of executable (28 MB)?
+* analyze ram usage (~120 MB) / laziness -- later
+* size of executable (17 MB)?
 * package the app
+`
