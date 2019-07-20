@@ -74,22 +74,28 @@ data Veto1 = Veto1 {
     , playMap :: String -- ^ Map that was played in this bo1-match
   } deriving Show
 
---
+
 -- | All maps that were in the active-duty group.
 pool0 :: [Map]
 pool0 = ["de_cache", "de_mirage", "de_inferno", "de_cbble", "de_overpass"
        , "de_dust2", "de_train"]
 
 
--- | All maps that were in the active-duty group from 25th of June 2017.
+-- | All maps that were in the active-duty group as of 25th of June 2017.
 pool1 :: [Map]
 pool1 = ["de_cache", "de_mirage", "de_inferno", "de_cbble", "de_overpass"
        , "de_nuke", "de_train"]
 
 
--- | All maps that currently are in the active-duty group. 1st of June 2018
+-- | All maps that currently are in the active-duty group as of 1st of June 2018
 pool2 :: [Map]
 pool2 = ["de_cache", "de_mirage", "de_inferno", "de_dust2", "de_overpass"
+       , "de_nuke", "de_train"]
+
+--
+-- | All maps that currently are in the active-duty group as of 10th of June 2019
+pool3 :: [Map]
+pool3 = ["de_vertigo", "de_mirage", "de_inferno", "de_dust2", "de_overpass"
        , "de_nuke", "de_train"]
 
 
@@ -138,9 +144,9 @@ handleArgs _ = putStrLn "Usage: 99veto URL"
 
 -- | Returns a tuple of (Game, Veto) (the corresponding veto for the game) for a list of 
 -- games.
-getTeamVetos :: Session
-             -> [Game]
-             -> IO (Either String [(Game, [Map])])
+getTeamVetos :: Session -- ^ Session with which wreq will download the page.
+             -> [Game] -- ^ List of Games to get the vetos for.
+             -> IO (Either String [(Game, [Map])]) -- ^ List of tuples of games with the corresponding map veto
 getTeamVetos sess teamGames = do
   matches <- traverse (get sess) $ link <$> teamGames
   let matchBodies = (^. responseBody) <$> matches
@@ -291,8 +297,9 @@ every n xs = case drop (n-1) xs of
 -- | Determines what mappool was used at the time of a given match.
 mapPool :: Game -> [Map]
 mapPool game
-  | date game > fromGregorian 2018 6 1  = pool2
-  | date game > fromGregorian 2017 6 20 = pool1
+  | date game > fromGregorian 2019 6 10  = pool3
+  | date game > fromGregorian 2018 6 1   = pool2
+  | date game > fromGregorian 2017 6 20  = pool1
   | otherwise = pool0
 
 
@@ -337,7 +344,7 @@ countVetos (bans, picks, oppPicks, leftovers) =
       leftoverMaps = head <$> leftovers'
 
 
--- | translateMonth takes a abbreviated month in German and translates it into
+-- | translateMonth takes an abbreviated month in German and translates it to
 -- English.
 translateMonth :: String -> String
 translateMonth "Mär" = "Mar"
